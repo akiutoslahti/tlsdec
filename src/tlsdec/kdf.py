@@ -9,9 +9,7 @@ def hkdf_expand(prk: bytes, info: bytes, length: int, hash_alg: str) -> bytes:
     digest_size = hash_mod.digest_size
 
     if length > 255 * digest_size:
-        raise KdfError(
-            f"Cannot expand to requested length {length} (limit {255 * digest_size} bytes)."
-        )
+        raise KdfError(f"Cannot expand to requested length {length} (limit {255 * digest_size} bytes).")
 
     output = b""
     previous = b""
@@ -25,9 +23,7 @@ def hkdf_expand(prk: bytes, info: bytes, length: int, hash_alg: str) -> bytes:
     return output[:length]
 
 
-def hkdf_expand_label(
-    prk: bytes, label: bytes, context: bytes, length: int, hash_alg: str
-) -> bytes:
+def hkdf_expand_label(prk: bytes, label: bytes, context: bytes, length: int, hash_alg: str) -> bytes:
     full_label = b"tls13 " + label
     info = (
         length.to_bytes(2, "big")
