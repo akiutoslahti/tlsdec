@@ -53,7 +53,7 @@ If I push you toward writing code, for example "just show me how you would do it
 
 ## Layout
 
-- `src/tlsdec/` the package: `pcap.py`, `tcp.py`, `record.py`, `handshake.py`, `keylog.py`, `kdf.py`, `decrypt.py`, `cli.py`
+- `src/tlsdec/` the package: `pcap.py`, `tcp.py`, `record.py`, `handshake.py`, `keylog.py`, `kdf.py`, `decrypt.py`, `errors.py`, `cli.py`
 - `tests/` pytest tests, one file per module, plus `tests/fixtures/` with the captures and key logs
 - `docs/` the reference tshark output for each fixture and the notes
 

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tlsdec"
+version = "0.0.1"
+requires-python = ">=3.11"
+dependencies = [
+  "cryptography >= 50.0.2"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest >= 9",
+  "mypy == 2.4.1",
+  "ruff == 0.17.3",
+]
+
+[project.scripts]
+tlsdec = "tlsdec.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "B",
+    "UP",
+    "RUF",
+    "BLE",
+    "A",
+    "N",
+    "SIM",
+    "C4",
+    "PLR2004"
+]
+ignore = [
+    "E501"
+]
