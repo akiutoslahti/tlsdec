@@ -23,3 +23,17 @@ def hkdf_expand(prk: bytes, info: bytes, length: int, hash_alg: str) -> bytes:
         counter += 1
 
     return output[:length]
+
+
+def hkdf_expand_label(
+    prk: bytes, label: bytes, context: bytes, length: int, hash_alg: str
+) -> bytes:
+    full_label = b"tls13 " + label
+    info = (
+        length.to_bytes(2, "big")
+        + len(full_label).to_bytes(1, "big")
+        + full_label
+        + len(context).to_bytes(1, "big")
+        + context
+    )
+    return hkdf_expand(prk, info, length, hash_alg)
