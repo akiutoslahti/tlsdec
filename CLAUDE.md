@@ -63,7 +63,8 @@ If I push you toward writing code, for example "just show me how you would do it
 - `pytest`
 - `mypy --strict src`
 - `ruff check . && ruff format --check .`
-- `tlsdec --pcap tests/fixtures/fixture.pcap --keylog tests/fixtures/keys.log`
-- Reference: `tshark -r tests/fixtures/fixture.pcap -o tls.keylog_file:tests/fixtures/keys.log -Y http -V`
+- `tlsdec --pcap tests/fixtures/fixture-TLS_AES_128_GCM_SHA256.pcap --keylog tests/fixtures/keys-TLS_AES_128_GCM_SHA256.log`
+- Reference: `tshark -r tests/fixtures/fixture-TLS_AES_128_GCM_SHA256.pcap -o tls.keylog_file:tests/fixtures/keys-TLS_AES_128_GCM_SHA256.log -o http.desegment_body:FALSE -Y http -V`
+- The same two commands with `TLS_AES_256_GCM_SHA384` in both file names for the second fixture.
 
 If a command here does not match the repository, tell me. Don't fix it.

@@ -56,7 +56,7 @@ A capture of one session against a local server, so the repository holds nothing
 - Client: `SSLKEYLOGFILE=keys.log curl -k https://localhost:4443/`
 - A second fixture with `TLS_AES_256_GCM_SHA384` on both sides, so the SHA-384 and 32-byte key path is tested too.
 
-Check the fixture before writing any code: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -Y http -V` must show the request and the response. If tshark cannot decrypt it, the fixture is wrong, not the tool.
+Check the fixture before writing any code: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -o http.desegment_body:FALSE -Y http -V` must show the request and the response. Without `http.desegment_body:FALSE` tshark never shows the response: `s_server -www` answers HTTP/1.0 with no Content-Length, so tshark keeps waiting for the body to end. If tshark cannot decrypt it, the fixture is wrong, not the tool.
 
 ### Tests
 
@@ -72,9 +72,12 @@ pytest, `mypy --strict`, ruff. Test first for the pure parts.
 
 ### Verification against Wireshark
 
-- Record count and types: `tshark -r fixture.pcap -Y tls.record -T fields -e tcp.srcport -e tls.record.content_type -e tls.record.length`
-- Plaintext: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -Y http -T fields -e http.request.line -e http.response.code -e http.file_data`
-- Inner content types: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -Y tls -T fields -e tls.record.opaque_type -e tls.record.content_type`
+The reference output for each fixture is committed in `docs/`, one file per command below, named after the fixture's cipher suite (`S`).
+
+- Record count and types, saved as `docs/records-S.txt`: `tshark -r fixture.pcap -Y tls.record -T fields -e frame.number -e tcp.srcport -e tls.record.content_type -e tls.record.opaque_type -e tls.record.length`. No key log, so tshark sees only the outer headers. In TLS 1.3 tshark puts the outer type of an encrypted record in `opaque_type` and leaves `content_type` empty. When a frame holds several records, the plaintext and encrypted types land in different columns and their order is lost; only the lengths column is in wire order.
+- Inner content types, saved as `docs/inner-S.txt`: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -o http.desegment_body:FALSE -Y tls -T fields -e frame.number -e tcp.srcport -e tls.record.opaque_type -e tls.record.content_type -e tls.handshake.type`. Without `http.desegment_body:FALSE` the server's close_notify is missing, because tshark counts its frame as part of the unfinished HTTP/1.0 body.
+- Plaintext, saved as `docs/plaintext-S.txt`: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -q -z follow,tls,raw,0`. Each direction's decrypted application data as hex, nothing truncated or escaped; this is the byte-for-byte reference. Tab-indented lines are from "Node 1" in the header, which in these fixtures is the client.
+- Quick look at the HTTP exchange, not saved: `tshark -r fixture.pcap -o tls.keylog_file:keys.log -o http.desegment_body:FALSE -Y http -T fields -e http.request.line -e http.response.code -e http.file_data`
 
 If the tool and tshark disagree, tshark is right until proven otherwise.
 
