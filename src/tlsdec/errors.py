@@ -24,3 +24,11 @@ class TcpError(TlsdecError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
+
+
+class RecordError(TlsdecError):
+    """Exception raised by record module"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
