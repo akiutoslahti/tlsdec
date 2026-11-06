@@ -1,3 +1,4 @@
+import ipaddress
 import struct
 from typing import NamedTuple
 
@@ -139,3 +140,108 @@ def tcp_parse_frame(frame: Frame) -> Segment:
         ack=ack,
         payload=payload,
     )
+
+
+class Endpoint(NamedTuple):
+    address: int
+    port: int
+
+
+class Flow(NamedTuple):
+    client: Endpoint
+    server: Endpoint
+    client_stream: bytes
+    server_stream: bytes
+
+
+def tcp_get_stream_position(seqno: int, isn: int) -> int:
+    return (seqno - isn - 1) % 2**32
+
+
+def tcp_get_endpoint_str(endpoint: Endpoint) -> str:
+    return f"{ipaddress.IPv4Address(endpoint.address)}:{endpoint.port}"
+
+
+def tcp_join_payloads(segments: list[Segment], isn: int) -> bytes:
+    expected_position = 0
+    stream = []
+    for seg in segments:
+        stream_pos = tcp_get_stream_position(seg.sequence_number, isn)
+        if expected_position < stream_pos:
+            raise TcpError(
+                f"Gap in stream; source {tcp_get_endpoint_str(Endpoint(seg.source_address, seg.source_port))}, destination {tcp_get_endpoint_str(Endpoint(seg.destination_address, seg.destination_port))}, frameno {seg.frameno}, position {stream_pos}, expected position {expected_position}"
+            )
+        elif expected_position > stream_pos:
+            raise TcpError(
+                f"Overlap in stream; source {tcp_get_endpoint_str(Endpoint(seg.source_address, seg.source_port))}, destination {tcp_get_endpoint_str(Endpoint(seg.destination_address, seg.destination_port))}, frameno {seg.frameno}, position {stream_pos}, expected position {expected_position}"
+            )
+        else:
+            stream.append(seg.payload)
+            expected_position += len(seg.payload)
+    return b"".join(stream)
+
+
+def tcp_segment_belongs_to_flow(seg: Segment, client: Endpoint, server: Endpoint) -> bool:
+    source = Endpoint(address=seg.source_address, port=seg.source_port)
+    destination = Endpoint(address=seg.destination_address, port=seg.destination_port)
+    return (source == client and destination == server) or (source == server and destination == client)
+
+
+def tcp_reassemble_flow(segments: list[Segment]) -> Flow:
+    syn_segments = [seg for seg in segments if seg.syn and not seg.ack]
+    if len(syn_segments) != 1:
+        raise TcpError(f"Can't establish flow; {len(syn_segments)} SYN segments")
+
+    syn_ack_segments = [seg for seg in segments if seg.syn and seg.ack]
+    if len(syn_ack_segments) != 1:
+        raise TcpError(f"Can't establish flow; {len(syn_ack_segments)} SYN+ACK segments")
+
+    syn_segment = syn_segments[0]
+    syn_ack_segment = syn_ack_segments[0]
+    if (
+        syn_segment.source_address != syn_ack_segment.destination_address
+        or syn_segment.source_port != syn_ack_segment.destination_port
+        or syn_segment.destination_address != syn_ack_segment.source_address
+        or syn_segment.destination_port != syn_ack_segment.source_port
+    ):
+        raise TcpError("Can't establish flow; SYN and SYN+ACK segments disagree in endpoints")
+
+    if len(syn_segment.payload) != 0:
+        raise TcpError(
+            f"Can't establish flow; SYN in frame {syn_segment.frameno} carries {len(syn_segment.payload)} bytes (TCP Fast Open)"
+        )
+
+    if len(syn_ack_segment.payload) != 0:
+        raise TcpError(
+            f"Can't establish flow; SYN+ACK in frame {syn_ack_segment.frameno} carries {len(syn_ack_segment.payload)} bytes (TCP Fast Open)"
+        )
+
+    client = Endpoint(address=syn_segment.source_address, port=syn_segment.source_port)
+    server = Endpoint(address=syn_segment.destination_address, port=syn_segment.destination_port)
+    client_isn = syn_segment.sequence_number
+    server_isn = syn_ack_segment.sequence_number
+
+    for seg in segments:
+        if not tcp_segment_belongs_to_flow(seg, client, server):
+            raise TcpError(
+                f"Segment doesn't belong to flow; frameno {seg.frameno}, source {tcp_get_endpoint_str(Endpoint(seg.source_address, seg.source_port))}, destination {tcp_get_endpoint_str(Endpoint(seg.destination_address, seg.destination_port))}"
+            )
+
+    client_segments = [
+        seg
+        for seg in segments
+        if seg.source_address == client.address and seg.source_port == client.port and len(seg.payload) > 0
+    ]
+    server_segments = [
+        seg
+        for seg in segments
+        if seg.source_address == server.address and seg.source_port == server.port and len(seg.payload) > 0
+    ]
+
+    client_segments.sort(key=lambda seg: tcp_get_stream_position(seg.sequence_number, client_isn))
+    server_segments.sort(key=lambda seg: tcp_get_stream_position(seg.sequence_number, server_isn))
+
+    client_stream = tcp_join_payloads(client_segments, client_isn)
+    server_stream = tcp_join_payloads(server_segments, server_isn)
+
+    return Flow(client=client, server=server, client_stream=client_stream, server_stream=server_stream)
