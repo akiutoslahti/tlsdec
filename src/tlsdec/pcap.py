@@ -17,7 +17,7 @@ EXPECTED_LINK_TYPE = 1
 
 
 class Frame(NamedTuple):
-    number: int
+    frameno: int
     data: bytes
 
 
@@ -78,7 +78,7 @@ def pcap_parse(data: bytes) -> PcapData:
 
         frame_start = offset + PACKET_RECORD_HEADER_LEN
         frame_end = frame_start + cap_len
-        frames.append(Frame(nr_frames + 1, data[frame_start:frame_end]))
+        frames.append(Frame(frameno=nr_frames + 1, data=data[frame_start:frame_end]))
         nr_frames += 1
         offset += PACKET_RECORD_HEADER_LEN + cap_len
 
