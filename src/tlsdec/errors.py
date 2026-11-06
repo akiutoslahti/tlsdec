@@ -32,3 +32,11 @@ class RecordError(TlsdecError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
+
+
+class KeylogError(TlsdecError):
+    """Exception raised by keylog module"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
