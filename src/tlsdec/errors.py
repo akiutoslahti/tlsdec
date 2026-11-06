@@ -40,3 +40,11 @@ class KeylogError(TlsdecError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
+
+
+class DecryptError(TlsdecError):
+    """Exception raised by decrypt module"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
