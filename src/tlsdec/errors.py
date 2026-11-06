@@ -48,3 +48,11 @@ class DecryptError(TlsdecError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
+
+
+class HandshakeError(TlsdecError):
+    """Exception raised by handshake module"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
