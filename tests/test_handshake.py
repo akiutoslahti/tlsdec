@@ -7,13 +7,13 @@ import testconf
 
 from tlsdec.errors import HandshakeError
 from tlsdec.handshake import (
-    CipherSuite,
     HandshakeHeader,
     HandshakeType,
     parse_client_hello,
     parse_handshake,
     parse_server_hello,
 )
+from tlsdec.kdf import CipherSuite
 from tlsdec.pcap import pcap_parse
 from tlsdec.record import record_split
 from tlsdec.tcp import tcp_parse_frame, tcp_reassemble_flow

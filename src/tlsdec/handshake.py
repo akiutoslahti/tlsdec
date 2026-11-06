@@ -2,6 +2,7 @@ from enum import IntEnum
 from typing import NamedTuple
 
 from tlsdec.errors import HandshakeError
+from tlsdec.kdf import CipherSuite
 
 HANDSHAKE_HDR_LEN = 4
 HANDSHAKE_MSG_TYPE_OFFS = 0
@@ -27,11 +28,6 @@ class HandshakeHeader(NamedTuple):
     type: HandshakeType
     body: bytes
     bytes_consumed: int
-
-
-class CipherSuite(IntEnum):
-    TLS_AES_128_GCM_SHA256 = 0x1301
-    TLS_AES_256_GCM_SHA384 = 0x1302
 
 
 def parse_handshake(data: bytes) -> HandshakeHeader:
