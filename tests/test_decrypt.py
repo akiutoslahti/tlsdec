@@ -1,9 +1,10 @@
+# ruff: noqa: PLR2004
 from pathlib import Path
 
 import pytest
 import testconf
 
-from tlsdec.decrypt import get_nonce, get_tls_inner_plaintext, tls_decrypt_record
+from tlsdec.decrypt import TlsKeyType, get_nonce, get_tls_inner_plaintext, tls_decrypt_direction, tls_decrypt_record
 from tlsdec.errors import DecryptError
 from tlsdec.handshake import HandshakeType, parse_client_hello, parse_handshake, parse_server_hello
 from tlsdec.kdf import get_traffic_keys
@@ -98,19 +99,21 @@ def tls_decrypt_helper(fixture: Path, keylog: Path):
 
     secrets = keylog_parse(keylog.read_text(), client_random)
 
-    (client_key, client_iv) = get_traffic_keys(cipher_suite, secrets.client_handshake)
-    (server_key, server_iv) = get_traffic_keys(cipher_suite, secrets.server_handshake)
+    client_hs_keys = get_traffic_keys(cipher_suite, secrets.client_handshake)
+    client_app_keys = get_traffic_keys(cipher_suite, secrets.client_application)
+    server_hs_keys = get_traffic_keys(cipher_suite, secrets.server_handshake)
+    server_app_keys = get_traffic_keys(cipher_suite, secrets.server_application)
 
-    return (client_records, client_key, client_iv, server_records, server_key, server_iv)
+    return (client_records, client_hs_keys, client_app_keys, server_records, server_hs_keys, server_app_keys)
 
 
 def test_tls_decrypt_record_aes128():
-    (client_records, client_key, client_iv, server_records, server_key, server_iv) = tls_decrypt_helper(
-        testconf.PATH_FIXTURE_AES_128, testconf.PATH_KEYLOG_AES_128
+    (client_records, client_hs_keys, _client_app_keys, server_records, server_hs_keys, _server_app_keys) = (
+        tls_decrypt_helper(testconf.PATH_FIXTURE_AES_128, testconf.PATH_KEYLOG_AES_128)
     )
 
-    client_data = tls_decrypt_record(client_records[2], client_key, client_iv, 0)
-    server_data = tls_decrypt_record(server_records[2], server_key, server_iv, 0)
+    client_data = tls_decrypt_record(client_records[2], client_hs_keys.key, client_hs_keys.iv, 0)
+    server_data = tls_decrypt_record(server_records[2], server_hs_keys.key, server_hs_keys.iv, 0)
 
     assert client_data.content_type == TlsContentType.HANDSHAKE
     assert server_data.content_type == TlsContentType.HANDSHAKE
@@ -125,12 +128,12 @@ def test_tls_decrypt_record_aes128():
 
 
 def test_tls_decrypt_record_aes256():
-    (client_records, client_key, client_iv, server_records, server_key, server_iv) = tls_decrypt_helper(
-        testconf.PATH_FIXTURE_AES_256, testconf.PATH_KEYLOG_AES_256
+    (client_records, client_hs_keys, _client_app_keys, server_records, server_hs_keys, _server_app_keys) = (
+        tls_decrypt_helper(testconf.PATH_FIXTURE_AES_256, testconf.PATH_KEYLOG_AES_256)
     )
 
-    client_data = tls_decrypt_record(client_records[2], client_key, client_iv, 0)
-    server_data = tls_decrypt_record(server_records[2], server_key, server_iv, 0)
+    client_data = tls_decrypt_record(client_records[2], client_hs_keys.key, client_hs_keys.iv, 0)
+    server_data = tls_decrypt_record(server_records[2], server_hs_keys.key, server_hs_keys.iv, 0)
 
     assert client_data.content_type == TlsContentType.HANDSHAKE
     assert server_data.content_type == TlsContentType.HANDSHAKE
@@ -147,12 +150,12 @@ def test_tls_decrypt_record_aes256():
 
 
 def test_tls_decrypt_record_tag_failure():
-    (client_records, client_key, client_iv, _server_records, _server_key, _server_iv) = tls_decrypt_helper(
-        testconf.PATH_FIXTURE_AES_128, testconf.PATH_KEYLOG_AES_128
+    (client_records, client_hs_keys, _client_app_keys, _server_records, _server_hs_keys, _server_app_keys) = (
+        tls_decrypt_helper(testconf.PATH_FIXTURE_AES_128, testconf.PATH_KEYLOG_AES_128)
     )
 
     with pytest.raises(DecryptError, match="Invalid tag; record index"):
-        tls_decrypt_record(client_records[2], client_key, client_iv, 1)
+        tls_decrypt_record(client_records[2], client_hs_keys.key, client_hs_keys.iv, 1)
 
 
 def test_tls_decrypt_record_wrong_type():
@@ -167,3 +170,79 @@ def test_tls_decrypt_record_too_short():
 
     with pytest.raises(DecryptError, match="TLS record body too short"):
         tls_decrypt_record(record, b"", b"", 0)
+
+
+def test_tls_decrypt_direction_aes128():
+    (client_records, client_hs_keys, client_app_keys, server_records, server_hs_keys, server_app_keys) = (
+        tls_decrypt_helper(testconf.PATH_FIXTURE_AES_128, testconf.PATH_KEYLOG_AES_128)
+    )
+
+    client_data = tls_decrypt_direction(client_records, client_hs_keys, client_app_keys)
+    server_data = tls_decrypt_direction(server_records, server_hs_keys, server_app_keys)
+
+    client_inner_types = [x.inner_type.value for x in client_data if x.inner_type is not None]
+    server_inner_types = [x.inner_type.value for x in server_data if x.inner_type is not None]
+    assert client_inner_types == [22, 23, 21]
+    assert server_inner_types == [22, 22, 22, 22, 22, 22, 23, 21]
+
+    assert client_data[2].handshake_types == [HandshakeType.FINISHED]
+    assert server_data[2].handshake_types == [HandshakeType.ENCRYPTED_EXTENSIONS]
+    assert server_data[3].handshake_types == [HandshakeType.CERTIFICATE]
+    assert server_data[4].handshake_types == [HandshakeType.CERTIFICATE_VERIFY]
+    assert server_data[5].handshake_types == [HandshakeType.FINISHED]
+    assert server_data[6].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+    assert server_data[7].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+
+
+def test_tls_decrypt_direction_aes256():
+    (client_records, client_hs_keys, client_app_keys, server_records, server_hs_keys, server_app_keys) = (
+        tls_decrypt_helper(testconf.PATH_FIXTURE_AES_256, testconf.PATH_KEYLOG_AES_256)
+    )
+
+    client_data = tls_decrypt_direction(client_records, client_hs_keys, client_app_keys)
+    server_data = tls_decrypt_direction(server_records, server_hs_keys, server_app_keys)
+
+    client_inner_types = [x.inner_type.value for x in client_data if x.inner_type is not None]
+    server_inner_types = [x.inner_type.value for x in server_data if x.inner_type is not None]
+    assert client_inner_types == [22, 23, 21]
+    assert server_inner_types == [22, 22, 22, 22, 22, 22, 23, 21]
+
+    assert client_data[2].handshake_types == [HandshakeType.FINISHED]
+    assert client_data[2].record_sequence_number == 0
+    assert client_data[2].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert client_data[3].record_sequence_number == 0
+    assert client_data[3].decrypt_key == TlsKeyType.APPLICATION
+
+    assert client_data[4].record_sequence_number == 1
+    assert client_data[4].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[2].handshake_types == [HandshakeType.ENCRYPTED_EXTENSIONS]
+    assert server_data[2].record_sequence_number == 0
+    assert server_data[2].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert server_data[3].handshake_types == [HandshakeType.CERTIFICATE]
+    assert server_data[3].record_sequence_number == 1
+    assert server_data[3].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert server_data[4].handshake_types == [HandshakeType.CERTIFICATE_VERIFY]
+    assert server_data[4].record_sequence_number == 2
+    assert server_data[4].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert server_data[5].handshake_types == [HandshakeType.FINISHED]
+    assert server_data[5].record_sequence_number == 3
+    assert server_data[5].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert server_data[6].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+    assert server_data[6].record_sequence_number == 0
+    assert server_data[6].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[7].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+    assert server_data[7].record_sequence_number == 1
+    assert server_data[7].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[8].record_sequence_number == 2
+    assert server_data[8].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[9].record_sequence_number == 3
+    assert server_data[9].decrypt_key == TlsKeyType.APPLICATION

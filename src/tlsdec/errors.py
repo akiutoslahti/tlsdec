@@ -56,3 +56,11 @@ class HandshakeError(TlsdecError):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
+
+
+class HandshakeIncompleteError(HandshakeError):
+    """Exception raised by handshake module when handshake is incomplete and needs more bytes"""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)

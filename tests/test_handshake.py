@@ -9,6 +9,7 @@ from tlsdec.errors import HandshakeError
 from tlsdec.handshake import (
     HandshakeHeader,
     HandshakeType,
+    handshake_walker,
     parse_client_hello,
     parse_handshake,
     parse_server_hello,
@@ -164,3 +165,28 @@ def test_parse_server_hello_unknown_cipher():
     )
     with pytest.raises(HandshakeError, match="Unknown Cipher"):
         parse_server_hello(server_hs)
+
+
+def test_handshake_walker_two_msg():
+    data = b"\x08\x00\x00\x00\x0b\x00\x00\x00"
+
+    (completed, leftover) = handshake_walker(data)
+    assert len(completed) == 2
+    assert completed[0].type == HandshakeType.ENCRYPTED_EXTENSIONS
+    assert completed[1].type == HandshakeType.CERTIFICATE
+    assert leftover == b""
+
+
+def test_handshake_walker_split():
+    data1 = b"\x08\x00\x00\x00\x0b"
+    data2 = b"\x00\x00\x00"
+
+    (completed1, leftover1) = handshake_walker(data1)
+    assert len(completed1) == 1
+    assert completed1[0].type == HandshakeType.ENCRYPTED_EXTENSIONS
+    assert leftover1 == b"\x0b"
+
+    (completed2, leftover2) = handshake_walker(leftover1 + data2)
+    assert len(completed2) == 1
+    assert completed2[0].type == HandshakeType.CERTIFICATE
+    assert leftover2 == b""

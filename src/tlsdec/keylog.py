@@ -13,9 +13,9 @@ NR_ENTRIES_PER_ROW = 3
 
 class Secrets(NamedTuple):
     client_handshake: bytes
-    client: bytes
+    client_application: bytes
     server_handshake: bytes
-    server: bytes
+    server_application: bytes
 
 
 def keylog_parse(data: str, client_random: bytes) -> Secrets:
@@ -63,7 +63,7 @@ def keylog_parse(data: str, client_random: bytes) -> Secrets:
 
     return Secrets(
         client_handshake=secrets[CLIENT_HANDSHAKE_LABEL],
-        client=secrets[CLIENT_LABEL],
+        client_application=secrets[CLIENT_LABEL],
         server_handshake=secrets[SERVER_HANDSHAKE_LABEL],
-        server=secrets[SERVER_LABEL],
+        server_application=secrets[SERVER_LABEL],
     )

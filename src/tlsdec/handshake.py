@@ -1,7 +1,7 @@
 from enum import IntEnum
 from typing import NamedTuple
 
-from tlsdec.errors import HandshakeError
+from tlsdec.errors import HandshakeError, HandshakeIncompleteError
 from tlsdec.kdf import CipherSuite
 
 HANDSHAKE_HDR_LEN = 4
@@ -22,8 +22,15 @@ HELLO_RETRY_REQUEST_RANDOM_MAGIC = bytes.fromhex("CF21AD74E59A6111BE1D8C021E65B8
 class HandshakeType(IntEnum):
     CLIENT_HELLO = 1
     SERVER_HELLO = 2
+    NEW_SESSION_TICKET = 4
+    END_OF_EARLY_DATA = 5
     ENCRYPTED_EXTENSIONS = 8
+    CERTIFICATE = 11
+    CERTIFICATE_REQUEST = 13
+    CERTIFICATE_VERIFY = 15
     FINISHED = 20
+    KEY_UPDATE = 24
+    MESSAGE_HASH = 254
 
 
 class HandshakeHeader(NamedTuple):
@@ -34,7 +41,7 @@ class HandshakeHeader(NamedTuple):
 
 def parse_handshake(data: bytes) -> HandshakeHeader:
     if len(data) < HANDSHAKE_HDR_LEN:
-        raise HandshakeError(f"Can't extract Handshake header; got {len(data)} of {HANDSHAKE_HDR_LEN} bytes")
+        raise HandshakeIncompleteError(f"Can't extract Handshake header; got {len(data)} of {HANDSHAKE_HDR_LEN} bytes")
 
     msg_type = data[HANDSHAKE_MSG_TYPE_OFFS]
     length = int.from_bytes(data[HANDSHAKE_LENGTH_OFFS : HANDSHAKE_LENGTH_OFFS + HANDSHAKE_LENGTH_LEN], "big")
@@ -45,7 +52,9 @@ def parse_handshake(data: bytes) -> HandshakeHeader:
         raise HandshakeError(f"Unknown Handshake type {msg_type}") from err
 
     if len(data) - HANDSHAKE_HDR_LEN < length:
-        raise HandshakeError(f"Can't extract Handshake body; got {len(data) - HANDSHAKE_HDR_LEN} of {length} bytes")
+        raise HandshakeIncompleteError(
+            f"Can't extract Handshake body; got {len(data) - HANDSHAKE_HDR_LEN} of {length} bytes"
+        )
 
     return HandshakeHeader(
         type=handshake_type,
@@ -102,3 +111,24 @@ def parse_server_hello(handshake: HandshakeHeader) -> CipherSuite:
         raise HandshakeError(f"Unknown Cipher Suite {hex(cipher_suite_raw)}") from err
 
     return cipher_suite
+
+
+class HandshakeWalkerResult(NamedTuple):
+    complete_messages: list[HandshakeHeader]
+    left_over_data: bytes
+
+
+def handshake_walker(data: bytes) -> HandshakeWalkerResult:
+    offset = 0
+    complete_messages = []
+
+    while offset < len(data):
+        try:
+            handshake = parse_handshake(data[offset:])
+        except HandshakeIncompleteError:
+            break
+
+        complete_messages.append(handshake)
+        offset += handshake.bytes_consumed
+
+    return HandshakeWalkerResult(complete_messages=complete_messages, left_over_data=data[offset:])
