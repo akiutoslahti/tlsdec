@@ -186,12 +186,44 @@ def test_tls_decrypt_direction_aes128():
     assert server_inner_types == [22, 22, 22, 22, 22, 22, 23, 21]
 
     assert client_data[2].handshake_types == [HandshakeType.FINISHED]
+    assert client_data[2].record_sequence_number == 0
+    assert client_data[2].decrypt_key == TlsKeyType.HANDSHAKE
+
+    assert client_data[3].record_sequence_number == 0
+    assert client_data[3].decrypt_key == TlsKeyType.APPLICATION
+
+    assert client_data[4].record_sequence_number == 1
+    assert client_data[4].decrypt_key == TlsKeyType.APPLICATION
+
     assert server_data[2].handshake_types == [HandshakeType.ENCRYPTED_EXTENSIONS]
+    assert server_data[2].record_sequence_number == 0
+    assert server_data[2].decrypt_key == TlsKeyType.HANDSHAKE
+
     assert server_data[3].handshake_types == [HandshakeType.CERTIFICATE]
+    assert server_data[3].record_sequence_number == 1
+    assert server_data[3].decrypt_key == TlsKeyType.HANDSHAKE
+
     assert server_data[4].handshake_types == [HandshakeType.CERTIFICATE_VERIFY]
+    assert server_data[4].record_sequence_number == 2
+    assert server_data[4].decrypt_key == TlsKeyType.HANDSHAKE
+
     assert server_data[5].handshake_types == [HandshakeType.FINISHED]
+    assert server_data[5].record_sequence_number == 3
+    assert server_data[5].decrypt_key == TlsKeyType.HANDSHAKE
+
     assert server_data[6].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+    assert server_data[6].record_sequence_number == 0
+    assert server_data[6].decrypt_key == TlsKeyType.APPLICATION
+
     assert server_data[7].handshake_types == [HandshakeType.NEW_SESSION_TICKET]
+    assert server_data[7].record_sequence_number == 1
+    assert server_data[7].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[8].record_sequence_number == 2
+    assert server_data[8].decrypt_key == TlsKeyType.APPLICATION
+
+    assert server_data[9].record_sequence_number == 3
+    assert server_data[9].decrypt_key == TlsKeyType.APPLICATION
 
 
 def test_tls_decrypt_direction_aes256():
