@@ -83,7 +83,7 @@ def main(args: list[str] | None = None) -> int:
 
         client_records_plain = tls_decrypt_direction(client_records, client_hs_keys, client_app_keys)
         server_records_plain = tls_decrypt_direction(server_records, server_hs_keys, server_app_keys)
-    except TlsdecError as err:
+    except (TlsdecError, OSError) as err:
         print(err, file=sys.stderr)
         return 1
 
