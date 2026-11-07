@@ -118,9 +118,9 @@ def test_tls_decrypt_record_aes128():
     client_hs = parse_handshake(client_data.content)
     server_hs = parse_handshake(server_data.content)
 
-    assert client_hs.type == HandshakeType.Finished
+    assert client_hs.type == HandshakeType.FINISHED
     assert client_hs.body == bytes.fromhex("70c5320f8de243df9b650da03a19a492a4774b622a182172f6df640ea94f46d0")
-    assert server_hs.type == HandshakeType.EncryptedExtensions
+    assert server_hs.type == HandshakeType.ENCRYPTED_EXTENSIONS
     assert server_hs.body == bytes.fromhex("0000")
 
 
@@ -138,11 +138,11 @@ def test_tls_decrypt_record_aes256():
     client_hs = parse_handshake(client_data.content)
     server_hs = parse_handshake(server_data.content)
 
-    assert client_hs.type == HandshakeType.Finished
+    assert client_hs.type == HandshakeType.FINISHED
     assert client_hs.body == bytes.fromhex(
         "9028e897f09bc25a0feb77dd0cda80283ea29511f2e9394f6514969210853e4e2f182bc66eb8981a03309c7dda63f5cc"
     )
-    assert server_hs.type == HandshakeType.EncryptedExtensions
+    assert server_hs.type == HandshakeType.ENCRYPTED_EXTENSIONS
     assert server_hs.body == bytes.fromhex("0000")
 
 

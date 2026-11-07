@@ -20,10 +20,10 @@ HELLO_RETRY_REQUEST_RANDOM_MAGIC = bytes.fromhex("CF21AD74E59A6111BE1D8C021E65B8
 
 
 class HandshakeType(IntEnum):
-    ClientHello = 1
-    ServerHello = 2
-    EncryptedExtensions = 8
-    Finished = 20
+    CLIENT_HELLO = 1
+    SERVER_HELLO = 2
+    ENCRYPTED_EXTENSIONS = 8
+    FINISHED = 20
 
 
 class HandshakeHeader(NamedTuple):
@@ -60,29 +60,29 @@ def check_msg_type(handshake: HandshakeHeader, handshake_type: HandshakeType) ->
 
 
 def parse_client_hello(handshake: HandshakeHeader) -> bytes:
-    check_msg_type(handshake, HandshakeType.ClientHello)
+    check_msg_type(handshake, HandshakeType.CLIENT_HELLO)
 
     data = handshake.body
     if len(data) < HELLO_RANDOM_OFFS + HELLO_RANDOM_LEN:
         raise HandshakeError(
-            f"Can't extract random from ClientHello; got {len(data)} of {HELLO_RANDOM_OFFS + HELLO_RANDOM_LEN} bytes"
+            f"Can't extract random from CLIENT_HELLO; got {len(data)} of {HELLO_RANDOM_OFFS + HELLO_RANDOM_LEN} bytes"
         )
 
     return data[HELLO_RANDOM_OFFS : HELLO_RANDOM_OFFS + HELLO_RANDOM_LEN]
 
 
 def parse_server_hello(handshake: HandshakeHeader) -> CipherSuite:
-    check_msg_type(handshake, HandshakeType.ServerHello)
+    check_msg_type(handshake, HandshakeType.SERVER_HELLO)
 
     data = handshake.body
     if len(data) < SERVER_HELLO_LEGACY_SESSION_ID_ECHO_OFFS + SERVER_HELLO_LEGACY_SESSION_ID_ECHO_LEN:
         raise HandshakeError(
-            f"Can't extract legacy session id echo length from ServerHello; got {len(data)} of {SERVER_HELLO_LEGACY_SESSION_ID_ECHO_OFFS + SERVER_HELLO_LEGACY_SESSION_ID_ECHO_LEN} bytes"
+            f"Can't extract legacy session id echo length from SERVER_HELLO; got {len(data)} of {SERVER_HELLO_LEGACY_SESSION_ID_ECHO_OFFS + SERVER_HELLO_LEGACY_SESSION_ID_ECHO_LEN} bytes"
         )
 
     random = data[HELLO_RANDOM_OFFS : HELLO_RANDOM_OFFS + HELLO_RANDOM_LEN]
     if random == HELLO_RETRY_REQUEST_RANDOM_MAGIC:
-        raise HandshakeError("ServerHello rejected as HelloRetryRequest")
+        raise HandshakeError("SERVER_HELLO rejected as HelloRetryRequest")
 
     legacy_session_id_echo_len = data[SERVER_HELLO_LEGACY_SESSION_ID_ECHO_OFFS]
     cipher_suite_start = (
@@ -92,7 +92,7 @@ def parse_server_hello(handshake: HandshakeHeader) -> CipherSuite:
 
     if len(data) < cipher_suite_end:
         raise HandshakeError(
-            f"Can't extract Cipher Suite from ServerHello; got {len(data)} of {cipher_suite_end} bytes"
+            f"Can't extract Cipher Suite from SERVER_HELLO; got {len(data)} of {cipher_suite_end} bytes"
         )
 
     cipher_suite_raw = int.from_bytes(data[cipher_suite_start:cipher_suite_end], "big")

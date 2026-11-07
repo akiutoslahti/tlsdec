@@ -47,11 +47,11 @@ def test_parse_handshake_aes128():
     client_hs = parse_handshake(client_records[0].body)
     server_hs = parse_handshake(server_records[0].body)
 
-    assert client_hs.type == HandshakeType.ClientHello
+    assert client_hs.type == HandshakeType.CLIENT_HELLO
     assert len(client_hs.body) == 508
     assert client_hs.bytes_consumed == 512
 
-    assert server_hs.type == HandshakeType.ServerHello
+    assert server_hs.type == HandshakeType.SERVER_HELLO
     assert len(server_hs.body) == 118
     assert server_hs.bytes_consumed == 122
 
@@ -61,11 +61,11 @@ def test_parse_handshake_aes256():
     client_hs = parse_handshake(client_records[0].body)
     server_hs = parse_handshake(server_records[0].body)
 
-    assert client_hs.type == HandshakeType.ClientHello
+    assert client_hs.type == HandshakeType.CLIENT_HELLO
     assert len(client_hs.body) == 508
     assert client_hs.bytes_consumed == 512
 
-    assert server_hs.type == HandshakeType.ServerHello
+    assert server_hs.type == HandshakeType.SERVER_HELLO
     assert len(server_hs.body) == 118
     assert server_hs.bytes_consumed == 122
 
@@ -102,14 +102,14 @@ def test_parse_client_hello_aes256():
 
 
 def test_parse_client_hello_wrong_type():
-    client_hs = HandshakeHeader(HandshakeType.ServerHello, FAKE_SERVER_HELLO_BODY, FAKE_CONSUMED_LEN)
+    client_hs = HandshakeHeader(HandshakeType.SERVER_HELLO, FAKE_SERVER_HELLO_BODY, FAKE_CONSUMED_LEN)
     with pytest.raises(HandshakeError, match="Invalid Handshake type"):
         parse_client_hello(client_hs)
 
 
 def test_parse_client_hello_too_short():
-    client_hs = HandshakeHeader(HandshakeType.ClientHello, FAKE_SERVER_HELLO_BODY[:33], FAKE_CONSUMED_LEN)
-    with pytest.raises(HandshakeError, match="Can't extract random from ClientHello"):
+    client_hs = HandshakeHeader(HandshakeType.CLIENT_HELLO, FAKE_SERVER_HELLO_BODY[:33], FAKE_CONSUMED_LEN)
+    with pytest.raises(HandshakeError, match="Can't extract random from CLIENT_HELLO"):
         parse_client_hello(client_hs)
 
 
@@ -130,19 +130,19 @@ def test_parse_server_hello_aes256():
 
 
 def test_parse_server_hello_wrong_type():
-    server_hs = HandshakeHeader(HandshakeType.ClientHello, FAKE_SERVER_HELLO_BODY, FAKE_CONSUMED_LEN)
+    server_hs = HandshakeHeader(HandshakeType.CLIENT_HELLO, FAKE_SERVER_HELLO_BODY, FAKE_CONSUMED_LEN)
     with pytest.raises(HandshakeError, match="Invalid Handshake type"):
         parse_server_hello(server_hs)
 
 
 def test_parse_server_hello_too_short1():
-    server_hs = HandshakeHeader(HandshakeType.ServerHello, FAKE_SERVER_HELLO_BODY[:34], FAKE_CONSUMED_LEN)
+    server_hs = HandshakeHeader(HandshakeType.SERVER_HELLO, FAKE_SERVER_HELLO_BODY[:34], FAKE_CONSUMED_LEN)
     with pytest.raises(HandshakeError, match="Can't extract legacy session id"):
         parse_server_hello(server_hs)
 
 
 def test_parse_server_hello_too_short2():
-    server_hs = HandshakeHeader(HandshakeType.ServerHello, FAKE_SERVER_HELLO_BODY[:-1], FAKE_CONSUMED_LEN)
+    server_hs = HandshakeHeader(HandshakeType.SERVER_HELLO, FAKE_SERVER_HELLO_BODY[:-1], FAKE_CONSUMED_LEN)
     with pytest.raises(HandshakeError, match="Can't extract Cipher Suite"):
         parse_server_hello(server_hs)
 
@@ -153,12 +153,14 @@ def test_parse_server_hello_magic_random():
         + bytes.fromhex("CF21AD74E59A6111BE1D8C021E65B891C2A211167ABB8C5E079E09E2C8A8339C")
         + FAKE_SERVER_HELLO_BODY[34:]
     )
-    server_hs = HandshakeHeader(HandshakeType.ServerHello, body, FAKE_CONSUMED_LEN)
+    server_hs = HandshakeHeader(HandshakeType.SERVER_HELLO, body, FAKE_CONSUMED_LEN)
     with pytest.raises(HandshakeError, match="HelloRetryRequest"):
         parse_server_hello(server_hs)
 
 
 def test_parse_server_hello_unknown_cipher():
-    server_hs = HandshakeHeader(HandshakeType.ServerHello, FAKE_SERVER_HELLO_BODY[:-2] + b"\x13\x00", FAKE_CONSUMED_LEN)
+    server_hs = HandshakeHeader(
+        HandshakeType.SERVER_HELLO, FAKE_SERVER_HELLO_BODY[:-2] + b"\x13\x00", FAKE_CONSUMED_LEN
+    )
     with pytest.raises(HandshakeError, match="Unknown Cipher"):
         parse_server_hello(server_hs)
