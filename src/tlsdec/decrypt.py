@@ -172,7 +172,7 @@ def tls_decrypt_direction(
 
         if HandshakeType.FINISHED in handshake_types and active_key_type == TlsKeyType.HANDSHAKE:
             if len(handshake_buffer) != 0:
-                raise DecryptError(f"[record {outer.idx}] non-empy handshake buffer when processing FINISHED")
+                raise DecryptError(f"[record {outer.idx}] non-empty handshake buffer when processing FINISHED")
             active_key_type = TlsKeyType.APPLICATION
             sequence_number = 0
 
