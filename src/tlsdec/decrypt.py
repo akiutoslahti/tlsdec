@@ -1,10 +1,16 @@
 from typing import NamedTuple
 
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from tlsdec.errors import DecryptError
-from tlsdec.record import TlsContentType
+from tlsdec.record import TlsContentType, TlsRecord
 
 IV_LEN = 12
 SEQNO_LEN = 8
+
+AESGCM_TAG_LEN = 16
+DECRYPT_MIN_LEN = AESGCM_TAG_LEN + 1
 
 
 def get_nonce(iv: bytes, seqno: int) -> bytes:
@@ -43,3 +49,23 @@ def get_tls_inner_plaintext(data: bytes) -> TlsInnerPlaintext:
         raise DecryptError(f"Invalid content type {content_type.name} for TlsInnerPlaintext")
 
     return TlsInnerPlaintext(content_type=content_type, content=stripped_data[0:-1])
+
+
+def tls_decrypt_record(record: TlsRecord, key: bytes, iv: bytes, seqno: int) -> TlsInnerPlaintext:
+    if record.content_type != TlsContentType.APPLICATION_DATA:
+        raise DecryptError(
+            f"Wrong outer type; got {record.content_type.name}, expected {TlsContentType.APPLICATION_DATA.name}"
+        )
+
+    if len(record.body) < DECRYPT_MIN_LEN:
+        raise DecryptError(f"TLS record body too short; got {len(record.body)} of minimum of {DECRYPT_MIN_LEN}")
+
+    nonce = get_nonce(iv, seqno)
+    aesgcm = AESGCM(key)
+
+    try:
+        plaintext = aesgcm.decrypt(nonce, record.body, record.header)
+    except InvalidTag as err:
+        raise DecryptError(f"Invalid tag; record index: {record.idx}, sequence number: {seqno}") from err
+
+    return get_tls_inner_plaintext(plaintext)

@@ -22,6 +22,8 @@ HELLO_RETRY_REQUEST_RANDOM_MAGIC = bytes.fromhex("CF21AD74E59A6111BE1D8C021E65B8
 class HandshakeType(IntEnum):
     ClientHello = 1
     ServerHello = 2
+    EncryptedExtensions = 8
+    Finished = 20
 
 
 class HandshakeHeader(NamedTuple):
